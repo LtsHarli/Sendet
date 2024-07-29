@@ -1,0 +1,7 @@
+Flask
+Flask-CORS
+Flask-SQLAlchemy
+Werkzeug
+flask-cors
+flask==3.0.1
+gunicorn
