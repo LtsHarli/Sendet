@@ -12,6 +12,13 @@ def create_app():
     logging.basicConfig(level=logging.INFO)
     app.logger = logging.getLogger(__name__)
 
+    # Load admin code from config
+    from config import ADMIN_CODE
+    app.config['ADMIN_CODE'] = ADMIN_CODE
+
+    # Setup logging for admin access attempts
+    app.logger.info(f"Admin code loaded: {app.config['ADMIN_CODE']}")
+
     # Configure SQLite database
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///messages.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
