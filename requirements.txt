@@ -3,5 +3,7 @@ Flask-CORS
 Flask-SQLAlchemy
 Werkzeug
 flask-cors
+flask-sqlalchemy
 flask==3.0.1
 gunicorn
+conifg
