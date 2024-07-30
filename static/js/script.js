@@ -1,6 +1,11 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     const createSessionButton = document.getElementById('create-session');
     const joinSessionButton = document.getElementById('join-session');
+    const adminButton = document.getElementById('admin-button');
+    const adminPopup = document.getElementById('admin-popup');
+    const adminCloseButton = document.getElementById('admin-close');
+    const adminSessionsContainer = document.getElementById('admin-sessions');
     const sessionCodeInput = document.getElementById('session-code-input');
     const sessionCodeDisplay = document.getElementById('session-code');
     const messagingSection = document.getElementById('messaging');
@@ -46,15 +51,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Function to send a message
     async function sendMessage(message) {
         try {
-            await fetch('/api/send_message', {
+            const response = await fetch('/api/send_message', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_code: sessionCode, content: message })
             });
-            messageInput.value = '';
-            await fetchMessages();
+            const data = await response.json();
+            if (response.ok) {
+                messageInput.value = '';
+                await fetchMessages();
+            } else {
+                alert(data.error || 'Error sending message');
+            }
         } catch (error) {
             console.error('Error sending message:', error);
+            alert('Error sending message. Please try again.');
         }
     }
 
@@ -66,10 +77,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 const messages = await response.json();
                 messagesContainer.innerHTML = messages.map(m => `<p>${decodeURIComponent(escape(atob(m.content)))}</p>`).join('');
                 messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                if (!document.getElementById('session-expiry')) {
+                    const sessionExpiry = new Date(new Date().getTime() + 14 * 24 * 60 * 60 * 1000);
+                    const expiryMessage = document.createElement('div');
+                    expiryMessage.id = 'session-expiry';
+                    expiryMessage.textContent = `Session expires on: ${sessionExpiry.toLocaleString()}`;
+                    expiryMessage.style.position = 'fixed';
+                    expiryMessage.style.bottom = '10px';
+                    expiryMessage.style.left = '10px';
+                    expiryMessage.style.color = 'white';
+                    document.body.appendChild(expiryMessage);
+                }
             } catch (error) {
                 console.error('Error fetching messages:', error);
             }
         }
+    
     }
 
     // Event listeners
@@ -84,6 +107,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     newSessionButton.addEventListener('click', createSession);
     joinSessionMenuButton.addEventListener('click', () => joinSessionPopup.classList.remove('hidden'));
+    adminButton.addEventListener('click', async () => {
+        const code = prompt('Enter admin code:');
+        if (code === ADMIN_CODE) {
+            adminPopup.classList.remove('hidden');
+            await fetchSessions();
+        } else {
+            alert('Invalid admin code');
+        }
+    });
+    adminCloseButton.addEventListener('click', () => adminPopup.classList.add('hidden'));
 
     messageForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -95,4 +128,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Fetch messages periodically
     setInterval(fetchMessages, 5000);
+
+    async function fetchSessions() {
+        try {
+            const response = await fetch('/api/get_sessions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ admin_code: ADMIN_CODE })
+            });
+            if (response.status === 403) {
+                alert('Access forbidden. Invalid admin code.');
+                return;
+            }
+            const sessions = await response.json();
+            adminSessionsContainer.innerHTML = sessions.map(s => `
+                <div class="session-item">
+                    <span>${s.session_code} (${s.message_count} messages)</span>
+                    <button onclick="deleteSession('${s.session_code}')">Delete</button>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error fetching sessions:', error);
+        }
+    }
+
+    async function deleteSession(session_code) {
+        try {
+            await fetch(`/api/delete_session/${session_code}`, { method: 'DELETE' });
+            await fetchSessions();
+        } catch (error) {
+            console.error('Error deleting session:', error);
+        }
+    }
+    window.deleteSession = deleteSession;
+
+    // Cleanup old sessions periodically
+    async function cleanupSessions() {
+        try {
+            await fetch('/api/cleanup_sessions', { method: 'POST' });
+        } catch (error) {
+            console.error('Error cleaning up sessions:', error);
+        }
+    }
+    setInterval(cleanupSessions, 24 * 60 * 60 * 1000); // Run cleanup every 24 hours
 });
