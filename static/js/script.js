@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     const createSessionButton = document.getElementById('create-session');
     const joinSessionButton = document.getElementById('join-session');
@@ -108,8 +107,18 @@ document.addEventListener('DOMContentLoaded', () => {
     newSessionButton.addEventListener('click', createSession);
     joinSessionMenuButton.addEventListener('click', () => joinSessionPopup.classList.remove('hidden'));
     adminButton.addEventListener('click', async () => {
-        const code = prompt('Enter admin code:');
-        if (code === ADMIN_CODE) {
+        document.getElementById('admin-login-popup').classList.remove('hidden');
+    });
+    document.getElementById('admin-login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const code = document.getElementById('admin-code-input').value;
+        const response = await fetch('/api/verify_admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ admin_code: code })
+        });
+        if (response.ok) {
+            document.getElementById('admin-login-popup').classList.add('hidden');
             adminPopup.classList.remove('hidden');
             await fetchSessions();
         } else {
@@ -132,11 +141,10 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchSessions() {
         try {
             const response = await fetch('/api/get_sessions', {
-                method: 'POST',
+                method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ admin_code: ADMIN_CODE })
+                }
             });
             if (response.status === 403) {
                 alert('Access forbidden. Invalid admin code.');
