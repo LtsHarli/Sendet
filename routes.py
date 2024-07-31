@@ -65,12 +65,17 @@ def register_routes(app, db):
         messages = Message.query.filter_by(session_code=session_code).order_by(Message.timestamp).all()
         return jsonify([{'id': m.id, 'content': m.content, 'timestamp': m.timestamp} for m in messages]), 200
 
-    @app.route('/api/get_sessions', methods=['POST'])
-    def get_sessions():
+    @app.route('/api/verify_admin', methods=['POST'])
+    def verify_admin():
         data = request.get_json()
-        if data.get('admin_code') != app.config['ADMIN_CODE']:
+        if data.get('admin_code') == app.config['ADMIN_CODE']:
+            return jsonify({'message': 'Admin verified'}), 200
+        else:
             app.logger.warning(f"Invalid admin code attempt: {data.get('admin_code')}")
             return jsonify({'error': 'Forbidden'}), 403
+
+    @app.route('/api/get_sessions', methods=['GET'])
+    def get_sessions():
         sessions = db.session.query(Message.session_code, db.func.count(Message.id).label('message_count')).group_by(Message.session_code).order_by(db.func.count(Message.id).desc()).all()
         return jsonify([{'session_code': s.session_code, 'message_count': s.message_count} for s in sessions]), 200
 
